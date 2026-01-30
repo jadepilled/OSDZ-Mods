@@ -1,84 +1,88 @@
 modded class CarScript
 {
-	// Based on Scripts/4_world/entities/vehicles/carscript.c : EOnPostSimulate()
-	protected const float PROTRACTION_EXTRA_GRAVITY_MULTIPLIER = 0.3;
-	protected const float PROTRACTION_LATERAL_DAMPING = 0.18;
-	protected const float PROTRACTION_YAW_DAMPING = 0.12;
-	protected const float PROTRACTION_SPEED_FOR_FULL_DAMPING = 12.0;
+    protected static const float PROTRACTION_MIN_SPEED = 0.1; // Minimum speed threshold for traction control
+    protected static const float PROTRACTION_YAW_SCALE = 0.35; // Scale factor for yaw damping
+    protected static const float PROTRACTION_STEERING_THRESHOLD = 0.2; // Steering threshold for applying traction control
 
-	override void EOnPostSimulate(IEntity other, float timeSlice)
-	{
-		super.EOnPostSimulate(other, timeSlice);
+    protected void ApplyProTraction(float timeSlice)
+    {
+        // Execute on server + vehicle owner
+        if (!IsServerOrOwner())
+        {
+            return;
+        }
 
-		if (!IsServerOrOwner())
-		{
-			return;
-		}
+        int wheelCount = WheelCount(); // Check wheel traction
+        if (wheelCount <= 0)
+        {
+            return; // Exit if no traction
+        }
 
-		if (!dBodyIsDynamic(this))
-		{
-			return;
-		}
+        // Track wheel contact
+        int contactCount = 0;
+        for (int i = 0; i < wheelCount; i++)
+        {
+            if (WheelHasContact(i))
+            {
+                contactCount++;
+            }
+        }
 
-		bool hasContact = false;
-		int wheelCount = WheelCount();
-		for (int wheelIdx = 0; wheelIdx < wheelCount; wheelIdx++)
-		{
-			if (WheelHasContact(wheelIdx))
-			{
-				hasContact = true;
-				break;
-			}
-		}
+        if (contactCount == 0)
+        {
+            return;
+        }
 
-		if (!hasContact)
-		{
-			return;
-		}
+         // Get absolute steering value if steering exceeds threshold
+        float steering = Math.AbsFloat(GetSteering());
+        if (steering > PROTRACTION_STEERING_THRESHOLD)
+        {
+            return;
+        }
 
-		float mass = dBodyGetMass(this);
-		if (mass <= 0)
-		{
-			return;
-		}
+        // Retrieve current velocity of vehicle, min speed check
+        vector velocity = GetVelocity(this);
+        if (velocity.LengthSq() <= (PROTRACTION_MIN_SPEED * PROTRACTION_MIN_SPEED))
+        {
+            return;
+        }
 
-		GenericWorldEntity worldEntity = GetGame().GetWorldEntity();
-		if (!worldEntity)
-		{
-			return;
-		}
+        //Vector normalisation + get
+        vector forward = GetDirection();
+        vector up = GetDirectionUp();
+        forward.Normalize();
+        up.Normalize();
 
-		vector gravity = dGetGravity(worldEntity);
-		if (gravity == "0 0 0")
-		{
-			return;
-		}
+        vector right = forward * up;
+        right.Normalize();
 
-		dBodyApplyForce(this, gravity * mass * PROTRACTION_EXTRA_GRAVITY_MULTIPLIER);
+        // Calculate speed components in forward, right, and up directions
+        float forwardSpeed = vector.Dot(velocity, forward);
+        float rightSpeed = vector.Dot(velocity, right);
+        float upSpeed = vector.Dot(velocity, up);
 
-		vector transform[3];
-		transform[2] = GetDirection();
-		transform[1] = GetDirectionUp();
-		transform[0] = transform[2] * transform[1];
+        // Stabilize lateral movement if there is significant right speed
+        if (Math.AbsFloat(rightSpeed) > 0.0001)
+        {
+            vector stabilizedVelocity = (forward * forwardSpeed) + (up * upSpeed);
+            SetVelocity(this, stabilizedVelocity); // Set the new stabilized velocity
+        }
 
-		vector velocity = GetVelocity(this);
-		vector localVelocity = velocity.InvMultiply3(transform);
-		float forwardSpeed = Math.AbsFloat(localVelocity[2]);
-		float lateralScale = Math.Clamp(forwardSpeed / PROTRACTION_SPEED_FOR_FULL_DAMPING, 0, 1);
-		float lateralForce = -localVelocity[0] * mass * PROTRACTION_LATERAL_DAMPING * lateralScale;
+        vector angularVelocity = dBodyGetAngularVelocity(this); // Get current angular velocity
+        float yawSpeed = vector.Dot(angularVelocity, up);
+        // Dampen yaw if sideward motion is present
+        if (Math.AbsFloat(yawSpeed) > 0.0001)
+        {
+            float dampedYaw = yawSpeed * PROTRACTION_YAW_SCALE;
+            vector stabilizedAngularVelocity = angularVelocity + (up * (dampedYaw - yawSpeed));
+            dBodySetAngularVelocity(this, stabilizedAngularVelocity); // Set angular velocity
+        }
+    }
 
-		if (Math.AbsFloat(lateralForce) > 0)
-		{
-			vector correctionWorld = Vector(lateralForce, 0, 0).Multiply3(transform);
-			dBodyApplyForce(this, correctionWorld);
-		}
-
-		vector angularVelocity = dBodyGetAngularVelocity(this);
-		float yaw = angularVelocity[1];
-		if (Math.AbsFloat(yaw) > 0)
-		{
-			vector yawTorque = transform[1] * (-yaw * mass * PROTRACTION_YAW_DAMPING);
-			dBodyApplyTorque(this, yawTorque);
-		}
-	}
+    // Apply on post-simulation (thanks dab)
+    override void EOnPostSimulate(IEntity other, float timeSlice)
+    {
+        super.EOnPostSimulate(other, timeSlice);
+        ApplyProTraction(timeSlice);
+    }
 }
