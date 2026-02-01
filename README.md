@@ -38,7 +38,21 @@ BetterBoltAction is a lightweight client-side mod that lets players cycle bolt-a
 * Works for all items inherited from BoltActionRifle_Base, so should work for most/all modded bolt action weapons.
 * Does not affect other weapons or sight interactions.
 
-###Yen Currency
+### BetterMilkyWay
+* Replaces the vanilla 2K Milky Way texture with a 4K space photography scan.
+* Intended for Chernarus Plus but can be easily implemented into other maps by altering the world targeted in config.cpp
+* While this mod is compatible with most skybox mods, any that affect the night sky texture will clash unfortunately. It is confirmed compatible with SkyZ.
+
+### Hashima Map Labels
+A simple mod that adds labels to cities, regions, and important areas on the Hashima map by CreepyCrappyShow, which does not have any by default.
+
+### Yen Currency
 Japanese Yen currency with wide trader/mod compatability. Designed for various Japan-themed servers and maps.
 * Contains a single-note stackable 1 Yen variant as well as a variant with many note denominations.
 * Based on Money Ruble by Designful.
+
+### NoVoiceMuffle
+Simple script override to disable muffled voices using masks.
+* Disables muffled speech effect for all items server-wide.
+* Should work for all modded items.
+* Does not affect other items such as the megaphone which use the same system to affect player speech.
