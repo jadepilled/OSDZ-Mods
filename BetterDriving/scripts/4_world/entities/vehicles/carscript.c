@@ -25,8 +25,16 @@ modded class CarScript
 	{
 		super.OnUpdate(dt);
 
-		if (!GetGame().IsServer())
-			return;
+		if (GetNetworkMoveStrategy() == NetworkMoveStrategy.PHYSICS)
+		{
+			if (!IsOwner())
+				return;
+		}
+		else
+		{
+			if (!GetGame().IsServer())
+				return;
+		}
 
 		if (GearboxGetType() != CarGearboxType.MANUAL)
 			return;

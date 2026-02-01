@@ -53,7 +53,8 @@ class CfgMods
 		type="mod";
 		dependencies[]=
 		{
-			"World"
+			"World",
+			"Mission"
 		};
 		class defs
 		{
@@ -63,6 +64,14 @@ class CfgMods
 				files[]=
 				{
 					"BetterDriving/scripts/4_world"
+				};
+			};
+			class missionScriptModule
+			{
+				value="";
+				files[]=
+				{
+					"BetterDriving/scripts/5_mission"
 				};
 			};
 		};

@@ -47,42 +47,36 @@ modded class CarScript
             return;
         }
 
-        //Vector normalisation + get
-        vector forward = GetDirection();
-        vector up = GetDirectionUp();
-        forward.Normalize();
-        up.Normalize();
-
-        vector right = forward * up;
-        right.Normalize();
+        vector mat[4];
+        dBodyGetWorldTransform(this, mat);
 
         // Calculate speed components in forward, right, and up directions
-        float forwardSpeed = vector.Dot(velocity, forward);
-        float rightSpeed = vector.Dot(velocity, right);
-        float upSpeed = vector.Dot(velocity, up);
+        float forwardSpeed = vector.Dot(velocity, mat[2]);
+        float rightSpeed = vector.Dot(velocity, mat[0]);
+        float upSpeed = vector.Dot(velocity, mat[1]);
 
         // Stabilize lateral movement if there is significant right speed
         if (Math.AbsFloat(rightSpeed) > 0.0001)
         {
-            vector stabilizedVelocity = (forward * forwardSpeed) + (up * upSpeed);
+            vector stabilizedVelocity = (mat[2] * forwardSpeed) + (mat[1] * upSpeed) + (mat[0] * rightSpeed * (1.0 - 0.05 * timeSlice));
             SetVelocity(this, stabilizedVelocity); // Set the new stabilized velocity
         }
 
         vector angularVelocity = dBodyGetAngularVelocity(this); // Get current angular velocity
-        float yawSpeed = vector.Dot(angularVelocity, up);
-        // Dampen yaw if sideward motion is present
+        float yawSpeed = vector.Dot(angularVelocity, mat[1]);
+        // Dampen yaw
         if (Math.AbsFloat(yawSpeed) > 0.0001)
         {
-            float dampedYaw = yawSpeed * PROTRACTION_YAW_SCALE;
-            vector stabilizedAngularVelocity = angularVelocity + (up * (dampedYaw - yawSpeed));
+            float dampedYaw = yawSpeed * PROTRACTION_YAW_SCALE * timeSlice;
+            vector stabilizedAngularVelocity = angularVelocity + (mat[1] * (dampedYaw - yawSpeed));
             dBodySetAngularVelocity(this, stabilizedAngularVelocity); // Set angular velocity
         }
     }
 
-    // Apply on post-simulation (thanks dab)
-    override void EOnPostSimulate(IEntity other, float timeSlice)
+    // Apply on simulation (thanks dab)
+    override void EOnSimulate(IEntity other, float dt)
     {
-        super.EOnPostSimulate(other, timeSlice);
-        ApplyProTraction(timeSlice);
+        super.EOnSimulate(other, dt);
+        ApplyProTraction(dt);
     }
 }
